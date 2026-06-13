@@ -461,7 +461,11 @@
             try { disabledCats = JSON.parse(localStorage.getItem('disabledCategories') || '[]'); } catch (e) {}
             var available = allSounds.filter(function (p) {
                 var parts = p.split('/');
-                return disabledCats.indexOf(parts[1]) === -1;
+                if (parts[0] === 'audio') {
+                    return disabledCats.indexOf(parts[1]) === -1;
+                }
+                var btn = Array.prototype.find.call(document.querySelectorAll('.sound-btn'), function (b) { return b.dataset.path === p; });
+                return btn && !btn.closest('.cat-disabled');
             });
             if (available.length > 0) {
                 var path = available[Math.floor(Math.random() * available.length)];
