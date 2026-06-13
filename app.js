@@ -1200,9 +1200,10 @@
             delBtn.className = 'cat-delete';
             delBtn.textContent = '✕';
             delBtn.title = 'Delete this imported category';
-            title.appendChild(delBtn);
+            title.insertBefore(delBtn, title.querySelector('.cat-toggle'));
             delBtn.onclick = function (e) {
                 e.stopPropagation();
+                if (!confirm('Delete "' + category.querySelector('.category-title-text').textContent + '" and all its sounds?')) return;
                 var catName = category.querySelector('.category-title-text').textContent;
                 category.remove();
                 // Remove from IndexedDB
