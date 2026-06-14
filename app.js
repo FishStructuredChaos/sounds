@@ -590,8 +590,8 @@
             selectedBand = 0;
             if (DOM.eqQRow) {
                 DOM.eqQRow.style.display = 'flex';
-                DOM.eqQSlider.value = 1;
-                DOM.eqQVal.textContent = '0.1';
+                DOM.eqQSlider.value = 50;
+                DOM.eqQVal.textContent = '5.0';
             }
         });
 
@@ -1742,7 +1742,7 @@
 
     function addEqBand(freq, gain) {
         var idx = eqBands.length;
-        eqBands.push({ freq: freq, gain: gain, q: 0.1, filter: null });
+        eqBands.push({ freq: freq, gain: gain, q: 5, filter: null });
         rebuildEqChain();
         for (var ai = 0; ai < eqBands.length; ai++) {
             if (eqBands[ai].freq === freq && eqBands[ai].gain === gain) {
@@ -1938,6 +1938,20 @@
                     eqBands[selectedBand].filter.Q.value = q;
                 }
                 DOM.eqQVal.textContent = q.toFixed(1);
+            });
+        }
+        var eqQReset = document.getElementById('eq-q-reset');
+        if (eqQReset) {
+            eqQReset.addEventListener('click', function () {
+                if (selectedBand < 0 || selectedBand >= eqBands.length) return;
+                DOM.eqQSlider.value = 50;
+                var q = 5.0;
+                eqBands[selectedBand].q = q;
+                if (eqBands[selectedBand].filter) {
+                    eqBands[selectedBand].filter.Q.value = q;
+                }
+                DOM.eqQVal.textContent = q.toFixed(1);
+                updateSliderModified(DOM.eqQSlider);
             });
         }
 
