@@ -160,6 +160,36 @@
             background: #00ff00;
             color: #000;
         }
+        .limiter-bypass-btn {
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            width: 24px;
+            height: 22px;
+            padding: 0;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            flex-shrink: 0;
+            border-radius: 2px;
+        }
+        .limiter-bypass-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        .limiter-bypass-btn.active {
+            background: #ff0000;
+            color: #fff;
+            border-color: #ff0000;
+            box-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+        }
+        .limiter-bypass-btn.active:hover {
+            background: #cc0000;
+            color: #fff;
+        }
 
         /* ── Controls drawer (expandable) ── */
         .controls-drawer {
@@ -1700,6 +1730,7 @@
                             <canvas id="limiter-meter" class="limiter-meter-hz"></canvas>
                         </div>
                         <span id="limiter-value" class="limiter-val">0.0</span>
+                        <button id="cb-boost-btn" class="limiter-bypass-btn" title="Bypass limiter">☠️</button>
                     </div>
                 </div>
                 <div id="eq-panel" class="eq-panel" style="display:none">

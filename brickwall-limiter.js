@@ -13,8 +13,18 @@ class BrickwallLimiterProcessor extends AudioWorkletProcessor {
         this.attackCoeff = 0.9;
         this.releaseBase = Math.exp(-1.0 / (sampleRate * 0.05));
 
+        this.bypass = false;
+
         this.port.onmessage = (e) => {
             if (e.data.threshold !== undefined) this.threshold = e.data.threshold;
+            if (e.data.bypass !== undefined) {
+                this.bypass = e.data.bypass;
+                if (!this.bypass) {
+                    this.buffer.fill(0);
+                    this.wp = 0;
+                    this.gain = 1.0;
+                }
+            }
         };
     }
 
@@ -25,6 +35,16 @@ class BrickwallLimiterProcessor extends AudioWorkletProcessor {
 
         const n = inp[0].length;
         const ch = Math.min(inp.length, out.length, 2);
+
+        if (this.bypass) {
+            for (let c = 0; c < ch; c++) {
+                for (let i = 0; i < n; i++) {
+                    out[c][i] = inp[c][i];
+                }
+            }
+            return true;
+        }
+
         const threshLin = Math.pow(10, this.threshold / 20);
         const releaseCoeff = 1 - this.releaseBase;
 

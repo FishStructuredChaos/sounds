@@ -186,7 +186,9 @@
     }
     let limiterNode = null;
     let limiterPort = null;
+    let preGain = null;
     var limiterThreshold = 0;
+    var limiterBypass = false;
     var webAudioOk = true;
 
     function getAudioCtx() {
@@ -208,6 +210,8 @@
                 freqDataArray = new Float32Array(analyser.frequencyBinCount);
                 distortionNode = audioCtx.createWaveShaper();
                 distortionNode.curve = null;
+                preGain = audioCtx.createGain();
+                preGain.gain.value = 1.0;
                 // Limiter will be inserted async via AudioWorklet
                 bassFilter.connect(masterGain);
                 masterGain.connect(distortionNode);
@@ -235,7 +239,8 @@
                 limiterNode = new AudioWorkletNode(audioCtx, 'brickwall-limiter');
                 limiterPort = limiterNode.port;
                 distortionNode.disconnect(analyser);
-                distortionNode.connect(limiterNode);
+                distortionNode.connect(preGain);
+                preGain.connect(limiterNode);
                 limiterNode.connect(analyser);
                 limiterPort.postMessage({ threshold: limiterThreshold });
             } catch (e) {
@@ -255,7 +260,8 @@
             fallback.attack.value = 0.001;
             fallback.release.value = 0.05;
             distortionNode.disconnect(analyser);
-            distortionNode.connect(fallback);
+            distortionNode.connect(preGain);
+            preGain.connect(fallback);
             fallback.connect(analyser);
             limiterNode = fallback;
             limiterPort = null;
@@ -564,6 +570,29 @@
                 }
             }
         });
+
+        var cbBoostBtn = document.getElementById('cb-boost-btn');
+        if (cbBoostBtn) {
+            cbBoostBtn.addEventListener('click', function () {
+                if (!limiterBypass) {
+                    if (!confirm('☠️ BYPASS LIMITER?\n\nLets all sounds play at full volume without the limiter.\nLoud sounds may clip!\n\nHit OK to bypass.')) return;
+                }
+                limiterBypass = !limiterBypass;
+                if (limiterPort) {
+                    limiterPort.postMessage({ bypass: limiterBypass });
+                } else if (limiterNode) {
+                    if (limiterBypass) {
+                        limiterNode.ratio.value = 1;
+                        limiterNode.threshold.value = 0;
+                    } else {
+                        limiterNode.ratio.value = 20;
+                        limiterNode.threshold.value = limiterThreshold;
+                    }
+                }
+                cbBoostBtn.classList.toggle('active', limiterBypass);
+                cbBoostBtn.title = limiterBypass ? 'LIMITER BYPASSED (click to enable)' : 'Bypass limiter';
+            });
+        }
 
         DOM.speedSlider.addEventListener('input', function () {
             updateSliderModified(this);
