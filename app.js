@@ -185,6 +185,8 @@
         }
     }
     let limiterNode = null;
+    let limiterPort = null;
+    var limiterThreshold = 0;
     var webAudioOk = true;
 
     function getAudioCtx() {
@@ -206,26 +208,58 @@
                 freqDataArray = new Float32Array(analyser.frequencyBinCount);
                 distortionNode = audioCtx.createWaveShaper();
                 distortionNode.curve = null;
-                limiterNode = audioCtx.createDynamicsCompressor();
-                limiterNode.threshold.value = 0;
-                limiterNode.knee.value = 0;
-                limiterNode.ratio.value = 20;
-                limiterNode.attack.value = 0.001;
-                limiterNode.release.value = 0.05;
+                // Limiter will be inserted async via AudioWorklet
                 bassFilter.connect(masterGain);
                 masterGain.connect(distortionNode);
-                distortionNode.connect(limiterNode);
-                limiterNode.connect(analyser);
+                distortionNode.connect(analyser);
                 analyser.connect(audioCtx.destination);
             } catch (e) {
                 webAudioOk = false;
                 return null;
             }
+            initLimiterWorklet();
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().catch(function () {});
         }
         return audioCtx;
+    }
+
+    function initLimiterWorklet() {
+        if (!audioCtx || !audioCtx.audioWorklet) {
+            initFallbackLimiter();
+            return;
+        }
+        audioCtx.audioWorklet.addModule('brickwall-limiter.js').then(function () {
+            try {
+                limiterNode = new AudioWorkletNode(audioCtx, 'brickwall-limiter');
+                limiterPort = limiterNode.port;
+                distortionNode.disconnect(analyser);
+                distortionNode.connect(limiterNode);
+                limiterNode.connect(analyser);
+                limiterPort.postMessage({ threshold: limiterThreshold });
+            } catch (e) {
+                initFallbackLimiter();
+            }
+        }).catch(function () {
+            initFallbackLimiter();
+        });
+    }
+
+    function initFallbackLimiter() {
+        try {
+            var fallback = audioCtx.createDynamicsCompressor();
+            fallback.threshold.value = limiterThreshold;
+            fallback.knee.value = 0;
+            fallback.ratio.value = 20;
+            fallback.attack.value = 0.001;
+            fallback.release.value = 0.05;
+            distortionNode.disconnect(analyser);
+            distortionNode.connect(fallback);
+            fallback.connect(analyser);
+            limiterNode = fallback;
+            limiterPort = null;
+        } catch (e) {}
     }
 
     function start() {
@@ -566,10 +600,10 @@
             return curve;
         }
 
-        var limiterThreshold = 0;
-
         function updateLimiter() {
-            if (limiterNode) {
+            if (limiterPort) {
+                limiterPort.postMessage({ threshold: limiterThreshold });
+            } else if (limiterNode) {
                 limiterNode.threshold.value = limiterThreshold;
             }
         }
