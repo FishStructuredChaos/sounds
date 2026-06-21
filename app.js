@@ -186,6 +186,8 @@
     }
     let limiterNode = null;
     let limiterPort = null;
+    let bitcrusherNode = null;
+    let bitcrusherPort = null;
     let preGain = null;
     var limiterThreshold = 0;
     var limiterBypass = false;
@@ -221,7 +223,7 @@
                 webAudioOk = false;
                 return null;
             }
-            initLimiterWorklet();
+            initAudioWorklets();
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().catch(function () {});
@@ -229,17 +231,23 @@
         return audioCtx;
     }
 
-    function initLimiterWorklet() {
+    function initAudioWorklets() {
         if (!audioCtx || !audioCtx.audioWorklet) {
             initFallbackLimiter();
             return;
         }
-        audioCtx.audioWorklet.addModule('brickwall-limiter.js').then(function () {
+        Promise.all([
+            audioCtx.audioWorklet.addModule('brickwall-limiter.js'),
+            audioCtx.audioWorklet.addModule('bitcrusher-processor.js')
+        ]).then(function () {
             try {
+                bitcrusherNode = new AudioWorkletNode(audioCtx, 'bitcrusher-processor');
+                bitcrusherPort = bitcrusherNode.port;
                 limiterNode = new AudioWorkletNode(audioCtx, 'brickwall-limiter');
                 limiterPort = limiterNode.port;
                 distortionNode.disconnect(analyser);
-                distortionNode.connect(preGain);
+                distortionNode.connect(bitcrusherNode);
+                bitcrusherNode.connect(preGain);
                 preGain.connect(limiterNode);
                 limiterNode.connect(analyser);
                 limiterPort.postMessage({ threshold: limiterThreshold });
@@ -265,6 +273,8 @@
             fallback.connect(analyser);
             limiterNode = fallback;
             limiterPort = null;
+            bitcrusherNode = null;
+            bitcrusherPort = null;
         } catch (e) {}
     }
 
@@ -572,10 +582,19 @@
         });
 
         var cbBoostBtn = document.getElementById('cb-boost-btn');
+        var boostSlider = document.getElementById('boost-slider');
+        var boostVal = document.getElementById('boost-value');
+
+        function applyBoost() {
+            if (preGain) {
+                preGain.gain.value = limiterBypass ? parseFloat(boostSlider.value) : 1.0;
+            }
+        }
+
         if (cbBoostBtn) {
             cbBoostBtn.addEventListener('click', function () {
                 if (!limiterBypass) {
-                    if (!confirm('☠️ BYPASS LIMITER?\n\nLets all sounds play at full volume without the limiter.\nLoud sounds may clip!\n\nHit OK to bypass.')) return;
+                    if (!confirm('☠️ BYPASS LIMITER?\n\nTurns off the limiter and boosts volume.\nLoud sounds may clip!\n\nAdjust the orange slider to control boost amount.\n\nHit OK to bypass.')) return;
                 }
                 limiterBypass = !limiterBypass;
                 if (limiterPort) {
@@ -591,7 +610,40 @@
                 }
                 cbBoostBtn.classList.toggle('active', limiterBypass);
                 cbBoostBtn.title = limiterBypass ? 'LIMITER BYPASSED (click to enable)' : 'Bypass limiter';
+                if (boostSlider) boostSlider.style.display = limiterBypass ? '' : 'none';
+                if (boostVal) boostVal.style.display = limiterBypass ? '' : 'none';
+                applyBoost();
             });
+        }
+
+        if (boostSlider && boostVal) {
+            boostSlider.addEventListener('input', function () {
+                boostVal.textContent = parseFloat(this.value).toFixed(1);
+                applyBoost();
+            });
+        }
+
+        var bitcrushSlider = document.getElementById('bitcrush-slider');
+        var bitcrushVal = document.getElementById('bitcrush-value');
+        var bitcrushReset = document.getElementById('bitcrush-reset');
+        if (bitcrushSlider && bitcrushVal) {
+            bitcrushSlider.addEventListener('input', function () {
+                updateSliderModified(this);
+                bitcrushVal.textContent = this.value;
+                if (bitcrusherPort) {
+                    bitcrusherPort.postMessage({ crush: parseInt(this.value) });
+                }
+            });
+            if (bitcrushReset) {
+                bitcrushReset.addEventListener('click', function () {
+                    bitcrushSlider.value = '0';
+                    bitcrushVal.textContent = '0';
+                    updateSliderModified(bitcrushSlider);
+                    if (bitcrusherPort) {
+                        bitcrusherPort.postMessage({ crush: 0 });
+                    }
+                });
+            }
         }
 
         DOM.speedSlider.addEventListener('input', function () {
