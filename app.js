@@ -155,8 +155,35 @@
     let chaosOn = false;
 
 
+    // Bounded LRU cache for decoded AudioBuffers. Each buffer holds decoded PCM
+    // (~10x the source file size), so without eviction stacking long music clips
+    // would balloon memory. Plain object preserves key insertion order, so we
+    // delete+re-set to mark recency on every access.
     let bufferCache = {};
     let distortionNode = null;
+    var BUFFER_CACHE_LIMIT = 40;
+    function getBuffer(path) {
+        if (!Object.prototype.hasOwnProperty.call(bufferCache, path)) return null;
+        var b = bufferCache[path];
+        delete bufferCache[path];
+        bufferCache[path] = b;
+        return b;
+    }
+    function putBuffer(path, buffer) {
+        if (Object.prototype.hasOwnProperty.call(bufferCache, path)) {
+            delete bufferCache[path];
+        } else if (Object.keys(bufferCache).length >= BUFFER_CACHE_LIMIT) {
+            // Evict oldest (first key in insertion order)
+            var oldest = Object.keys(bufferCache)[0];
+            if (oldest) delete bufferCache[oldest];
+        }
+        bufferCache[path] = buffer;
+    }
+    function forgetBuffer(path) {
+        if (Object.prototype.hasOwnProperty.call(bufferCache, path)) {
+            delete bufferCache[path];
+        }
+    }
     let limiterNode = null;
     var webAudioOk = true;
 
@@ -340,6 +367,93 @@
         }
     }
 
+    // Builds a fully-wired sound button shared by online and imported sounds.
+    // opts: { name, path, fileName?, fileSize?, isLocal }
+    function createSoundButton(opts) {
+        var btn = document.createElement('button');
+        btn.className = 'sound-btn';
+        btn.textContent = opts.name;
+        btn.dataset.search = opts.name;
+        btn.dataset.path = opts.path;
+        if (opts.isLocal) btn.dataset.local = '1';
+
+        var len = opts.name.length;
+        if (len <= 5) btn.style.fontSize = '1.3rem';
+        else if (len <= 9) btn.style.fontSize = '1.0rem';
+        else if (len <= 14) btn.style.fontSize = '0.85rem';
+        else if (len <= 22) btn.style.fontSize = '0.7rem';
+        else btn.style.fontSize = '0.6rem';
+
+        if (opts.fileSize && opts.fileSize > 0) {
+            var sizeText = document.createElement('span');
+            sizeText.className = 'file-size';
+            var fs = opts.fileSize;
+            if (fs < 1024) sizeText.textContent = fs + ' B';
+            else if (fs < 1048576) sizeText.textContent = (fs / 1024).toFixed(0) + ' KB';
+            else sizeText.textContent = (fs / 1048576).toFixed(1) + ' MB';
+            btn.appendChild(sizeText);
+        }
+
+        var stopBtn = document.createElement('button');
+        stopBtn.className = 'stop-single-btn';
+        stopBtn.textContent = '✕';
+        stopBtn.title = 'Stop this sound';
+        btn.appendChild(stopBtn);
+
+        var loopBtn = document.createElement('button');
+        loopBtn.className = 'loop-btn';
+        loopBtn.innerHTML = '<svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor"><path d="M15.5 2.5A1 1 0 0 1 16 4v3a1 1 0 0 1-1 1h-3a1 1 0 0 1 0-2h1.2A5.5 5.5 0 0 0 4.9 6.6a1 1 0 1 1-1.8-.8A7.5 7.5 0 0 1 15.5 4V3.5a1 1 0 0 1 1-1zM3.5 17A1 1 0 0 1 3 15.5v-3A1 1 0 0 1 4 11.5h3a1 1 0 0 1 0 2H5.8A5.5 5.5 0 0 0 15.1 13a1 1 0 0 1 1.8.8A7.5 7.5 0 0 1 4.5 16v.5a1 1 0 0 1-1 1z"/></svg>';
+        loopBtn.title = 'Toggle loop';
+        loopBtn.dataset.loop = 'false';
+        btn.appendChild(loopBtn);
+
+        var progressTrack = document.createElement('span');
+        progressTrack.className = 'progress-track';
+        var progressFill = document.createElement('span');
+        progressFill.className = 'progress-fill';
+        progressTrack.appendChild(progressFill);
+        btn.appendChild(progressTrack);
+
+        var skipBack = document.createElement('button');
+        skipBack.className = 'skip-btn skip-back';
+        skipBack.textContent = '-10';
+        skipBack.title = 'Skip back 10s';
+        btn.appendChild(skipBack);
+
+        var skipForward = document.createElement('button');
+        skipForward.className = 'skip-btn skip-forward';
+        skipForward.textContent = '+10';
+        skipForward.title = 'Skip forward 10s';
+        btn.appendChild(skipForward);
+
+        if (!opts.isLocal) {
+            var downloadBtn = document.createElement('a');
+            downloadBtn.className = 'download-btn';
+            downloadBtn.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 1a.5.5 0 0 1 .5.5v7.793l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V1.5A.5.5 0 0 1 8 1z"/><path d="M1 11.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 .5.5h12a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 1 1 0v2a1.5 1.5 0 0 1-1.5 1.5H2a1.5 1.5 0 0 1-1.5-1.5v-2a.5.5 0 0 1 .5-.5z"/></svg>';
+            downloadBtn.href = opts.path;
+            downloadBtn.download = opts.fileName || opts.name;
+            downloadBtn.title = 'Download';
+            btn.appendChild(downloadBtn);
+        }
+
+        btn.addEventListener('click', function (e) {
+            if (e.target.closest('.download-btn')) return;
+            if (e.target.closest('.stop-single-btn')) { stopSingle(this); return; }
+            if (e.target.closest('.loop-btn')) {
+                if (!paintLoopDrag) toggleLoop(this, this.querySelector('.loop-btn'));
+                paintLoopDrag = false;
+                paintPlayDrag = false;
+                return;
+            }
+            if (e.target.classList.contains('skip-back')) { skipSound(this, -10); return; }
+            if (e.target.classList.contains('skip-forward')) { skipSound(this, 10); return; }
+            if (paintPlayDrag) { paintPlayDrag = false; return; }
+            playSound(this.dataset.path, this);
+        });
+
+        return btn;
+    }
+
     function populateCategoryGrid(category) {
         var files = category._files;
         var grid = category.querySelector('.buttons-grid');
@@ -351,94 +465,17 @@
             else if (typeof file === 'object') { fileName = file.name || ''; fileSize = file.size || 0; }
 
             var audioPath = 'audio/' + folderName + '/' + fileName;
-
-            var btn = document.createElement('button');
-            btn.className = 'sound-btn';
-
             var cleanName = fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
-            btn.textContent = cleanName;
-            btn.dataset.search = cleanName;
-            btn.dataset.path = audioPath;
-            var len = cleanName.length;
-            if (len <= 5) btn.style.fontSize = '1.3rem';
-            else if (len <= 9) btn.style.fontSize = '1.0rem';
-            else if (len <= 14) btn.style.fontSize = '0.85rem';
-            else if (len <= 22) btn.style.fontSize = '0.7rem';
-            else btn.style.fontSize = '0.6rem';
 
-            if (fileSize > 0) {
-                var sizeText = document.createElement('span');
-                sizeText.className = 'file-size';
-                if (fileSize < 1024) sizeText.textContent = fileSize + ' B';
-                else if (fileSize < 1048576) sizeText.textContent = (fileSize / 1024).toFixed(0) + ' KB';
-                else sizeText.textContent = (fileSize / 1048576).toFixed(1) + ' MB';
-                btn.appendChild(sizeText);
-            }
-
-            allSounds.push(audioPath);
-
-            var downloadBtn = document.createElement('a');
-            downloadBtn.className = 'download-btn';
-            downloadBtn.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 1a.5.5 0 0 1 .5.5v7.793l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V1.5A.5.5 0 0 1 8 1z"/><path d="M1 11.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 .5.5h12a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 1 1 0v2a1.5 1.5 0 0 1-1.5 1.5H2a1.5 1.5 0 0 1-1.5-1.5v-2a.5.5 0 0 1 .5-.5z"/></svg>';
-            downloadBtn.href = audioPath;
-            downloadBtn.download = fileName;
-            downloadBtn.title = 'Download';
-
-            var stopBtn = document.createElement('button');
-            stopBtn.className = 'stop-single-btn';
-            stopBtn.textContent = '✕';
-            stopBtn.title = 'Stop this sound';
-
-            var loopBtn = document.createElement('button');
-            loopBtn.className = 'loop-btn';
-            loopBtn.innerHTML = '<svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor"><path d="M15.5 2.5A1 1 0 0 1 16 4v3a1 1 0 0 1-1 1h-3a1 1 0 0 1 0-2h1.2A5.5 5.5 0 0 0 4.9 6.6a1 1 0 1 1-1.8-.8A7.5 7.5 0 0 1 15.5 4V3.5a1 1 0 0 1 1-1zM3.5 17A1 1 0 0 1 3 15.5v-3A1 1 0 0 1 4 11.5h3a1 1 0 0 1 0 2H5.8A5.5 5.5 0 0 0 15.1 13a1 1 0 0 1 1.8.8A7.5 7.5 0 0 1 4.5 16v.5a1 1 0 0 1-1 1z"/></svg>';
-            loopBtn.title = 'Toggle loop';
-            loopBtn.dataset.loop = 'false';
-
-            var progressTrack = document.createElement('span');
-            progressTrack.className = 'progress-track';
-            var progressFill = document.createElement('span');
-            progressFill.className = 'progress-fill';
-            progressTrack.appendChild(progressFill);
-
-            var skipBack = document.createElement('button');
-            skipBack.className = 'skip-btn skip-back';
-            skipBack.textContent = '-10';
-            skipBack.title = 'Skip back 10s';
-
-            var skipForward = document.createElement('button');
-            skipForward.className = 'skip-btn skip-forward';
-            skipForward.textContent = '+10';
-            skipForward.title = 'Skip forward 10s';
-
-            btn.appendChild(stopBtn);
-            btn.appendChild(loopBtn);
-            btn.appendChild(progressTrack);
-            btn.appendChild(skipBack);
-            btn.appendChild(skipForward);
-            btn.appendChild(downloadBtn);
-
-            btn.addEventListener('click', function (e) {
-                if (e.target === downloadBtn) return;
-                if (e.target === stopBtn) {
-                    stopSingle(btn);
-                    return;
-                }
-                if (e.target === loopBtn || loopBtn.contains(e.target)) {
-                    if (!paintLoopDrag) toggleLoop(btn, loopBtn);
-                    paintLoopDrag = false;
-                    paintPlayDrag = false;
-                    return;
-                }
-                if (e.target === skipBack || e.target === skipForward) {
-                    var delta = e.target === skipBack ? -10 : 10;
-                    skipSound(btn, delta);
-                    return;
-                }
-                if (paintPlayDrag) { paintPlayDrag = false; return; }
-                playSound(audioPath, btn);
+            var btn = createSoundButton({
+                name: cleanName,
+                path: audioPath,
+                fileName: fileName,
+                fileSize: fileSize,
+                isLocal: false
             });
 
+            allSounds.push(audioPath);
             grid.appendChild(btn);
         });
     }
@@ -840,6 +877,7 @@
                 // Remove all imported categories from the DOM
                 var locals = document.querySelectorAll('.category-container[id^="local-cat-"]');
                 for (var i = 0; i < locals.length; i++) {
+                    teardownCategory(locals[i]);
                     locals[i].remove();
                 }
                 updateTotalCount();
@@ -1209,6 +1247,7 @@
                 e.stopPropagation();
                 if (!confirm('Delete "' + category.querySelector('.category-title-text').textContent + '" and all its sounds?')) return;
                 var catName = category.querySelector('.category-title-text').textContent;
+                teardownCategory(category);
                 category.remove();
                 // Remove from IndexedDB
                 openImportDB().then(function (db) {
@@ -1240,70 +1279,14 @@
             var blobUrl = URL.createObjectURL(file);
             var cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
 
-            var btn = document.createElement('button');
-            btn.className = 'sound-btn';
-            btn.textContent = cleanName;
-            btn.dataset.search = cleanName;
-            btn.dataset.path = blobUrl;
-            btn.dataset.local = '1';
-            allSounds.push(blobUrl);
-            var len = cleanName.length;
-            if (len <= 5) btn.style.fontSize = '1.3rem';
-            else if (len <= 9) btn.style.fontSize = '1.0rem';
-            else if (len <= 14) btn.style.fontSize = '0.85rem';
-            else if (len <= 22) btn.style.fontSize = '0.7rem';
-            else btn.style.fontSize = '0.6rem';
-
-            var stopBtn = document.createElement('button');
-            stopBtn.className = 'stop-single-btn';
-            stopBtn.textContent = '✕';
-            stopBtn.title = 'Stop this sound';
-
-            var loopBtn = document.createElement('button');
-            loopBtn.className = 'loop-btn';
-            loopBtn.innerHTML = '<svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor"><path d="M15.5 2.5A1 1 0 0 1 16 4v3a1 1 0 0 1-1 1h-3a1 1 0 0 1 0-2h1.2A5.5 5.5 0 0 0 4.9 6.6a1 1 0 1 1-1.8-.8A7.5 7.5 0 0 1 15.5 4V3.5a1 1 0 0 1 1-1zM3.5 17A1 1 0 0 1 3 15.5v-3A1 1 0 0 1 4 11.5h3a1 1 0 0 1 0 2H5.8A5.5 5.5 0 0 0 15.1 13a1 1 0 0 1 1.8.8A7.5 7.5 0 0 1 4.5 16v.5a1 1 0 0 1-1 1z"/></svg>';
-            loopBtn.title = 'Toggle loop';
-            loopBtn.dataset.loop = 'false';
-
-            var progressTrack = document.createElement('span');
-            progressTrack.className = 'progress-track';
-            var progressFill = document.createElement('span');
-            progressFill.className = 'progress-fill';
-            progressTrack.appendChild(progressFill);
-
-            var skipBack = document.createElement('button');
-            skipBack.className = 'skip-btn skip-back';
-            skipBack.textContent = '-10';
-            skipBack.title = 'Skip back 10s';
-
-            var skipForward = document.createElement('button');
-            skipForward.className = 'skip-btn skip-forward';
-            skipForward.textContent = '+10';
-            skipForward.title = 'Skip forward 10s';
-
-            btn.appendChild(stopBtn);
-            btn.appendChild(loopBtn);
-            btn.appendChild(progressTrack);
-            btn.appendChild(skipBack);
-            btn.appendChild(skipForward);
-
-            btn.addEventListener('click', function (e) {
-                if (e.target.closest('.stop-single-btn')) {
-                    stopSingle(this);
-                    return;
-                }
-                if (e.target.closest('.loop-btn')) {
-                    if (!paintLoopDrag) toggleLoop(this, this.querySelector('.loop-btn'));
-                    paintLoopDrag = false;
-                    paintPlayDrag = false;
-                    return;
-                }
-                if (e.target.classList.contains('skip-back')) { skipSound(this, -10); return; }
-                if (e.target.classList.contains('skip-forward')) { skipSound(this, 10); return; }
-                if (paintPlayDrag) { paintPlayDrag = false; return; }
-                playSound(this.dataset.path, this);
+            var btn = createSoundButton({
+                name: cleanName,
+                path: blobUrl,
+                fileSize: file.size,
+                isLocal: true
             });
 
+            allSounds.push(blobUrl);
             grid.appendChild(btn);
         }
 
@@ -1379,14 +1362,15 @@
             }
         }
 
-        if (bufferCache[path]) {
-            startSource(bufferCache[path]);
+        var cached = getBuffer(path);
+        if (cached) {
+            startSource(cached);
         } else {
             fetch(path)
                 .then(function (r) { return r.arrayBuffer(); })
                 .then(function (buf) { return ctx.decodeAudioData(buf); })
                 .then(function (decoded) {
-                    bufferCache[path] = decoded;
+                    putBuffer(path, decoded);
                     startSource(decoded);
                 })
                 .catch(function () {
@@ -1548,6 +1532,24 @@
             try { entry.audio.pause(); entry.audio.currentTime = 0; } catch (e) {}
         }
         removeAudio(entry);
+    }
+
+    // Tear down an imported category before removing it: stop any audio still
+    // playing from its buttons, revoke the blob: URLs those buttons hold (each
+    // import called URL.createObjectURL and nothing was freeing them), and drop
+    // cached decoded buffers for those paths. Safe to call on any category;
+    // only local (imported) buttons carry blob: paths worth revoking.
+    function teardownCategory(catEl) {
+        var btns = catEl.querySelectorAll('.sound-btn');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            var path = btn.dataset.path;
+            stopSingle(btn);
+            if (path && path.indexOf('blob:') === 0) {
+                URL.revokeObjectURL(path);
+                forgetBuffer(path);
+            }
+        }
     }
 
     function filterSounds() {

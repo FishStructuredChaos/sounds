@@ -12,7 +12,7 @@ REM Step 1: Convert audio to OGG (if ffmpeg is available)
 ffmpeg -version >nul 2>&1
 if %errorlevel% equ 0 (
     echo [1/2] Converting audio to OGG...
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\convert-to-mp3.ps1"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\convert-to-ogg.ps1"
 ) else (
     echo [1/2] ffmpeg not found -- skipping audio conversion
 )
