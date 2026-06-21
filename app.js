@@ -49,6 +49,9 @@
     let autoPitchMode = 0;
     let autoPitchModes = ['RND', 'STEP', 'DRIFT'];
     let eqBuilt = false;
+    // Whether the EQ chain is in the audio path. The EQ only affects audio while
+    // its panel is open; closing the panel bypasses the filters (settings kept).
+    let eqActive = false;
     let eqCanvasCtx = null;
     let analyser = null;
     let freqDataArray = null;
@@ -692,10 +695,14 @@
                 DOM.eqPanel.style.display = 'block';
                 DOM.eqBtn.classList.add('active');
                 resizeEqCanvas();
+                // Route audio through the EQ chain now that the panel is open
+                enableEqChain();
             } else {
                 DOM.eqPanel.style.display = 'none';
                 DOM.eqBtn.classList.remove('active');
                 stopEqAnimation();
+                // Bypass the EQ so it no longer affects playback (settings kept)
+                disableEqChain();
             }
         });
 
@@ -705,18 +712,28 @@
             if (DOM.eqChaos) DOM.eqChaos.classList.remove('active');
             if (DOM.wobbleRow) DOM.wobbleRow.style.display = 'none';
             if (DOM.eqExtras) DOM.eqExtras.style.display = 'none';
+            // Preserve the Q of the selected band (Q has its own reset button)
+            var savedQ = 5;
+            if (selectedBand >= 0 && selectedBand < eqBands.length) {
+                savedQ = eqBands[selectedBand].q;
+            }
             eqBands.forEach(function (b) {
                 if (b.filter) try { b.filter.disconnect(); } catch (e) {}
             });
             eqBands = [];
             eqFilters = [];
-            // Leave one default dot so audio always routes through the EQ chain
+            // Leave one default dot so audio always routes through the EQ chain,
+            // carrying over the preserved Q value
             addEqBand(1000, 0);
+            if (eqBands[0]) {
+                eqBands[0].q = savedQ;
+                if (eqBands[0].filter) eqBands[0].filter.Q.value = savedQ;
+            }
             selectedBand = 0;
             if (DOM.eqQRow) {
                 DOM.eqQRow.style.display = 'flex';
-                DOM.eqQSlider.value = 50;
-                DOM.eqQVal.textContent = '5.0';
+                DOM.eqQSlider.value = Math.max(1, Math.min(100, Math.round(savedQ * 10)));
+                DOM.eqQVal.textContent = savedQ.toFixed(1);
             }
         });
 
@@ -795,6 +812,78 @@
                 if (ulLabel) ulLabel.textContent = 'ON';
             }
         });
+
+        var resetAllBtn = document.getElementById('reset-all-btn');
+        if (resetAllBtn) {
+            resetAllBtn.addEventListener('click', function () {
+                DOM.speedSlider.value = '1';
+                DOM.speedValue.textContent = '1.00';
+                updateSliderModified(DOM.speedSlider);
+
+                DOM.pitchSlider.value = '0';
+                DOM.pitchValue.textContent = '0¢';
+                updateSliderModified(DOM.pitchSlider);
+                updateActiveRates();
+
+                DOM.distSlider.value = '0';
+                DOM.distValue.textContent = '0';
+                updateSliderModified(DOM.distSlider);
+                if (distortionNode) distortionNode.curve = null;
+
+                var limiterSlider = document.getElementById('limiter-slider');
+                if (limiterSlider) {
+                    limiterSlider.value = '0';
+                    updateSliderModified(limiterSlider);
+                    limiterThreshold = 0;
+                    if (DOM.limiterValue) DOM.limiterValue.textContent = '0.0';
+                    updateLimiter();
+                }
+
+                if (boostSlider) {
+                    boostSlider.value = '1';
+                    updateSliderModified(boostSlider);
+                    boostVal.textContent = '1.0';
+                    if (preGain) preGain.gain.value = 1;
+                }
+
+                if (bitcrushSlider) {
+                    bitcrushSlider.value = '0';
+                    updateSliderModified(bitcrushSlider);
+                    bitcrushVal.textContent = '0';
+                    if (bitcrusherPort) bitcrusherPort.postMessage({ crush: 0 });
+                }
+
+                // Bass boost off
+                if (bassBoostOn) {
+                    bassBoostOn = false;
+                    DOM.bassBtn.classList.remove('active');
+                    DOM.bassBtn.textContent = '🔊 BASS';
+                    if (bassFilter) bassFilter.gain.value = 0;
+                }
+
+                // Auto pitch off
+                if (autoPitchOn) {
+                    autoPitchOn = false;
+                    DOM.autoPitchBtn.classList.remove('active');
+                    if (DOM.pitchSpeedWrap) DOM.pitchSpeedWrap.style.display = 'none';
+                    DOM.pitchSlider.disabled = false;
+                    stopAutoPitch();
+                    updateSliderModified(DOM.pitchSlider);
+                    if (DOM.autoPitchSpeed) {
+                        DOM.autoPitchSpeed.value = '1';
+                        updateSliderModified(DOM.autoPitchSpeed);
+                        if (DOM.autoPitchSpeedVal) DOM.autoPitchSpeedVal.textContent = '1';
+                        autoPitchSpeed = 1;
+                    }
+                    if (DOM.autoPitchModeBtn) {
+                        autoPitchMode = 0;
+                        DOM.autoPitchModeBtn.textContent = 'RND';
+                    }
+                }
+
+                // Note: EQ settings are intentionally left untouched by RESET ALL
+            });
+        }
 
         DOM.hideControlsBtn.addEventListener('click', function () {
             var drawer = document.getElementById('controls-drawer');
@@ -1165,6 +1254,45 @@
             requestAnimationFrame(function () { startLimiterMeter(); });
         }
 
+        // Update reset button state (yellow when UI is not at default)
+        function updateResetBtn() {
+            var btn = document.getElementById('reset-all-btn');
+            if (!btn) return;
+            var ranges = document.querySelectorAll('#controls-bar input[type="range"]');
+            for (var ri = 0; ri < ranges.length; ri++) {
+                if (ranges[ri].value !== ranges[ri].defaultValue) {
+                    btn.classList.add('needs-reset');
+                    return;
+                }
+            }
+            var toggles = [DOM.bassBtn, DOM.autoPitchBtn];
+            for (var ti = 0; ti < toggles.length; ti++) {
+                if (toggles[ti] && toggles[ti].classList.contains('active')) {
+                    btn.classList.add('needs-reset');
+                    return;
+                }
+            }
+            if (DOM.unloopBtn.classList.contains('active')) {
+                btn.classList.add('needs-reset');
+                return;
+            }
+            btn.classList.remove('needs-reset');
+        }
+
+        document.addEventListener('input', function (e) {
+            if (e.target.matches('#controls-bar input[type="range"]')) {
+                updateResetBtn();
+            }
+        });
+
+        document.getElementById('controls-bar').addEventListener('click', function (e) {
+            if (e.target.closest('#bass-btn, #eq-btn, #auto-pitch-btn, #unloop-btn, #reset-all-btn')) {
+                setTimeout(updateResetBtn, 0);
+            }
+        });
+
+        setTimeout(updateResetBtn, 100);
+
         // Initialize slider modified state
         Array.prototype.forEach.call(document.querySelectorAll('input[type="range"]'), updateSliderModified);
     }
@@ -1384,7 +1512,7 @@
             source.playbackRate.value = speed;
             source.detune.value = cents;
             source.loop = triggerEl.dataset.loop === 'true';
-            source.connect(eqFilters.length > 0 ? eqFilters[0] : (bassFilter || masterGain));
+            source.connect((eqActive && eqFilters.length > 0) ? eqFilters[0] : (bassFilter || masterGain));
 
             var entry = { source: source, el: triggerEl, path: path, buffer: buffer, startTime: ctx.currentTime, duration: buffer.duration };
             activeAudios.push(entry);
@@ -1727,7 +1855,7 @@
                 src.playbackRate.value = speed;
                 src.detune.value = cents;
                 src.loop = entry.el.dataset.loop === 'true';
-                src.connect(eqFilters.length > 0 ? eqFilters[0] : (bassFilter || masterGain));
+                src.connect((eqActive && eqFilters.length > 0) ? eqFilters[0] : (bassFilter || masterGain));
                 src.start(0, offset);
                 src.onended = function () { removeAudio(entry); };
                 entry.source = src;
@@ -1748,6 +1876,37 @@
     function invPosY(py) {
         var h = DOM.eqCanvas.height / (window.devicePixelRatio || 1);
         return Math.max(-50, Math.min(50, Math.round(-50 + (1 - py / h) * 100)));
+    }
+
+    // Connect the EQ filter chain into the audio path so the EQ actually
+    // affects playing sounds. Routes source -> eqFilters[0] -> ... -> bassFilter.
+    // Safe to call when already active (no-op) or before any bands exist.
+    function enableEqChain() {
+        if (!audioCtx || eqActive) return;
+        if (eqFilters.length === 0) return;
+        eqActive = true;
+        var dst = eqFilters[0];
+        for (var asi = 0; asi < activeAudios.length; asi++) {
+            var aSrc = activeAudios[asi].source;
+            if (aSrc) {
+                try { aSrc.disconnect(); } catch (e) {}
+                aSrc.connect(dst);
+            }
+        }
+    }
+
+    // Bypass the EQ: route all playing sources straight to the bass filter so
+    // closing the EQ panel reverts playback to flat. EQ band settings are kept.
+    function disableEqChain() {
+        if (!audioCtx || !eqActive) return;
+        eqActive = false;
+        for (var asi = 0; asi < activeAudios.length; asi++) {
+            var aSrc = activeAudios[asi].source;
+            if (aSrc) {
+                try { aSrc.disconnect(); } catch (e) {}
+                aSrc.connect(bassFilter);
+            }
+        }
     }
 
     function rebuildEqChain() {
@@ -1774,13 +1933,16 @@
                 eqFilters[ri].connect(bassFilter);
             }
         }
-        // Reconnect any actively-playing sources to the new chain
-        var dst = eqFilters.length > 0 ? eqFilters[0] : bassFilter;
-        for (var asi = 0; asi < activeAudios.length; asi++) {
-            var aSrc = activeAudios[asi].source;
-            if (aSrc) {
-                try { aSrc.disconnect(); } catch (e) {}
-                aSrc.connect(dst);
+        // Reconnect actively-playing sources: into the chain only while the EQ
+        // panel is open; otherwise bypass straight to the bass filter.
+        if (eqActive) {
+            var dst = eqFilters.length > 0 ? eqFilters[0] : bassFilter;
+            for (var asi = 0; asi < activeAudios.length; asi++) {
+                var aSrc = activeAudios[asi].source;
+                if (aSrc) {
+                    try { aSrc.disconnect(); } catch (e) {}
+                    aSrc.connect(dst);
+                }
             }
         }
     }

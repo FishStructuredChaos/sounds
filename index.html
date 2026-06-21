@@ -312,59 +312,33 @@
             background: #000;
             color: #00ff00;
             border: 2px solid #00ff00;
-            padding: 10px 18px;
+            padding: 14px 22px;
             font-family: 'Segoe UI', Tahoma, sans-serif;
             font-size: 1rem;
-            cursor: pointer;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.1s ease;
-            white-space: nowrap;
-        }
-
-        #stop-btn:hover {
-            background: #00ff00;
-            color: #000;
-        }
-
-        #stop-btn:active {
-            background: #00ff00;
-            color: #000;
-        }
-
-        .unloop-btn {
-            background: #000;
-            color: #ff0000;
-            border: 1px solid #ff0000;
-            padding: 10px 14px;
-            font-size: 0.85rem;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
             cursor: pointer;
             font-weight: bold;
             white-space: nowrap;
             transition: all 0.1s ease;
             line-height: 1;
             text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .unloop-btn:hover {
-            background: #ff0000;
-            color: #000;
-        }
-        .unloop-btn.active {
+        #stop-btn:hover {
             background: #ffff00;
             color: #000;
             border-color: #ffff00;
         }
 
-        #bass-btn {
-            background: #000;
-            color: #00ff00;
-            border: 2px solid #00ff00;
+        #stop-btn:active {
+            background: #ffff00;
+            color: #000;
+            border-color: #ffff00;
+        }
+
+        .ctrl-btn {
             padding: 10px 14px;
             font-size: 0.85rem;
-            min-width: 8em;
             font-family: 'Segoe UI', Tahoma, sans-serif;
             cursor: pointer;
             font-weight: bold;
@@ -375,48 +349,56 @@
             letter-spacing: 1px;
         }
 
-        #bass-btn:hover {
-            background: #00ff00;
-            color: #000;
+        #eq-btn, #bass-btn, #auto-pitch-btn, #reset-all-btn {
+            background: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
         }
 
-        #bass-btn.active {
+        #eq-btn:hover, #bass-btn:hover, #auto-pitch-btn:hover, #reset-all-btn:hover {
+            background: #ffff00;
+            color: #000;
+            border-color: #ffff00;
+        }
+
+        #eq-btn:active, #bass-btn:active, #auto-pitch-btn:active, #reset-all-btn:active {
+            background: #ffff00;
+            color: #000;
+            border-color: #ffff00;
+        }
+
+        #eq-btn.active, #bass-btn.active, #auto-pitch-btn.active {
+            background: #ffff00;
+            color: #000;
+            border-color: #ffff00;
+        }
+
+        #reset-all-btn.needs-reset {
+            color: #ffff00;
+            border-color: #ffff00;
+        }
+
+        #reset-all-btn.needs-reset:hover {
+            background: #ffff00;
+            color: #000;
+            border-color: #ffff00;
+        }
+
+        .unloop-btn {
+            background: #000;
+            color: #ff0000;
+            border: 2px solid #ff0000;
+        }
+
+        .unloop-btn:hover {
             background: #ff0000;
             color: #000;
             border-color: #ff0000;
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
-            animation: bassPulse 0.5s ease-in-out infinite alternate;
         }
-
-        @keyframes bassPulse {
-            0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.6); }
-            100% { box-shadow: 0 0 30px rgba(255, 0, 0, 1); }
-        }
-
-        #eq-btn, #auto-pitch-btn {
-            background: #000;
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 10px 14px;
-            font-size: 0.85rem;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            cursor: pointer;
-            font-weight: bold;
-            white-space: nowrap;
-            transition: all 0.1s ease;
-            line-height: 1;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        #eq-btn:hover, #auto-pitch-btn:hover {
-            background: #00ff00;
+        .unloop-btn.active {
+            background: #ffff00;
             color: #000;
-        }
-
-        #eq-btn.active, #auto-pitch-btn.active {
-            background: #00ff00;
-            color: #000;
+            border-color: #ffff00;
         }
 
         .eq-panel {
@@ -1407,25 +1389,14 @@
             .auto-slider {
                 width: 40px;
             }
-            #bass-btn {
-                padding: 4px 6px;
-                font-size: 0.7rem;
+            #stop-btn {
+                padding: 6px 10px;
+                font-size: 0.75rem;
             }
 
-            #eq-btn, #auto-pitch-btn {
+            .ctrl-btn {
                 padding: 4px 6px;
                 font-size: 0.65rem;
-            }
-
-            #stop-btn {
-                padding: 4px 6px;
-                font-size: 0.7rem;
-                text-align: center;
-            }
-
-            .unloop-btn {
-                padding: 4px 6px;
-                line-height: 0;
             }
 
             .unloop-btn .unloop-label {
@@ -1516,19 +1487,14 @@
                 border-width: 1px;
             }
 
-            #bass-btn {
-                padding: 3px 5px;
-                font-size: 0.6rem;
+            #stop-btn {
+                padding: 5px 10px;
+                font-size: 0.65rem;
             }
 
-            #eq-btn, #auto-pitch-btn {
+            .ctrl-btn {
                 padding: 3px 5px;
                 font-size: 0.55rem;
-            }
-
-            #stop-btn {
-                padding: 3px 5px;
-                font-size: 0.6rem;
             }
             .auto-slider {
                 width: 36px;
@@ -1540,11 +1506,6 @@
             .auto-mode-btn {
                 font-size: 0.5rem;
                 padding: 1px 3px;
-            }
-
-            .unloop-btn {
-                padding: 4px 6px;
-                font-size: 0.65rem;
             }
 
             .unloop-btn svg {
@@ -1711,16 +1672,17 @@
                         </div>
                         <span id="limiter-value" class="limiter-val">0.0</span>
                     </div>
-                    <button id="stop-btn">⏹ ALL STOP</button>
-                    <button id="eq-btn">🎚 EQ</button>
-                    <button id="bass-btn">🔊 BASS</button>
-                    <button id="auto-pitch-btn">🌀 AUTO PITCH</button>
+                    <button id="stop-btn">⏹ STOP ALL</button>
+                    <button id="reset-all-btn" class="ctrl-btn">↺ RESET ALL</button>
+                    <button id="eq-btn" class="ctrl-btn">🎚 EQ</button>
+                    <button id="bass-btn" class="ctrl-btn">🔊 BASS</button>
+                    <button id="auto-pitch-btn" class="ctrl-btn">🌀 AUTO PITCH</button>
                     <div class="pitch-speed-wrap" id="pitch-speed-wrap" style="display:none">
                         <input type="range" id="auto-pitch-speed" class="auto-slider" min="1" max="100" step="1" value="1">
                         <span id="auto-pitch-speed-val" class="auto-val">1</span>
                         <button id="auto-pitch-mode" class="auto-mode-btn">RND</button>
                     </div>
-                    <button id="unloop-btn" class="unloop-btn"><svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M15.5 2.5A1 1 0 0 1 16 4v3a1 1 0 0 1-1 1h-3a1 1 0 0 1 0-2h1.2A5.5 5.5 0 0 0 4.9 6.6a1 1 0 1 1-1.8-.8A7.5 7.5 0 0 1 15.5 4V3.5a1 1 0 0 1 1-1zM3.5 17A1 1 0 0 1 3 15.5v-3A1 1 0 0 1 4 11.5h3a1 1 0 0 1 0 2H5.8A5.5 5.5 0 0 0 15.1 13a1 1 0 0 1 1.8.8A7.5 7.5 0 0 1 4.5 16v.5a1 1 0 0 1-1 1z"/></svg> <span class="unloop-label">ON</span></button>
+                    <button id="unloop-btn" class="ctrl-btn unloop-btn"><svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M15.5 2.5A1 1 0 0 1 16 4v3a1 1 0 0 1-1 1h-3a1 1 0 0 1 0-2h1.2A5.5 5.5 0 0 0 4.9 6.6a1 1 0 1 1-1.8-.8A7.5 7.5 0 0 1 15.5 4V3.5a1 1 0 0 1 1-1zM3.5 17A1 1 0 0 1 3 15.5v-3A1 1 0 0 1 4 11.5h3a1 1 0 0 1 0 2H5.8A5.5 5.5 0 0 0 15.1 13a1 1 0 0 1 1.8.8A7.5 7.5 0 0 1 4.5 16v.5a1 1 0 0 1-1 1z"/></svg> <span class="unloop-label">ON</span></button>
                 </div>
                 <div id="eq-panel" class="eq-panel" style="display:none">
                     <div class="eq-header">
