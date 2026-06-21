@@ -999,7 +999,6 @@
                 }
             }
             var peakDB = peak > 0 ? 20 * Math.log10(peak) : -100;
-            if (peakDB > 8) peakDB = 8;
             limiterPeak = Math.max(peakDB, limiterPeak - 1.5);
 
             function dbToX(db) {
@@ -1009,12 +1008,13 @@
                 return n * w;
             }
 
-            var levelX = Math.max(2, dbToX(limiterPeak));
+            var levelX = dbToX(limiterPeak);
             var pct = levelX / w;
 
-            var r = 0, g = 255, b = 0;
-            if (pct >= 0.88) { r = 255; g = 0; b = 0; }
-            else if (pct >= 0.53) { r = 255; g = 255; b = 0; }
+            var r, g, b;
+            if (pct < 0.53) { r = 0; g = 255; b = 0; }
+            else if (pct < 0.88) { r = 255; g = 255; b = 0; }
+            else { r = 255; g = 0; b = 0; }
 
             ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.85)';
             ctx.fillRect(0, 0, levelX, h);
