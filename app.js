@@ -1012,8 +1012,8 @@
             var pct = levelX / w;
 
             var r, g, b;
-            if (pct < 0.5) { r = 0; g = 255; b = 0; }
-            else if (pct < 0.75) { r = 255; g = 255; b = 0; }
+            if (pct < 0.7) { r = 0; g = 255; b = 0; }
+            else if (pct < 0.9) { r = 255; g = 255; b = 0; }
             else { r = 255; g = 0; b = 0; }
 
             ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.85)';
