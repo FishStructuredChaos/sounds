@@ -167,55 +167,8 @@
         }
         .boost-slider {
             width: 60px;
-            border-color: #ff6600 !important;
         }
-        .boost-label {
-            color: #ff6600 !important;
-        }
-        .boost-slider::-webkit-slider-thumb {
-            background: #ff6600 !important;
-        }
-        .boost-slider::-moz-range-thumb {
-            background: #ff6600 !important;
-        }
-        .limiter-wrap.bypassed .limiter-label:not(.boost-label),
-        .limiter-wrap.bypassed #limiter-value,
-        .limiter-wrap.bypassed #limiter-slider,
-        .limiter-wrap.bypassed .limiter-meter-box {
-            opacity: 0.35;
-            filter: grayscale(1);
-            pointer-events: none;
-        }
-        .limiter-bypass-btn {
-            background: #000;
-            color: #00ff00;
-            border: 1px solid #00ff00;
-            width: 24px;
-            height: 22px;
-            padding: 0;
-            font-size: 0.75rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            flex-shrink: 0;
-            border-radius: 2px;
-        }
-        .limiter-bypass-btn:hover {
-            background: #00ff00;
-            color: #000;
-        }
-        .limiter-bypass-btn.active {
-            background: #ff0000;
-            color: #fff;
-            border-color: #ff0000;
-            box-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
-        }
-        .limiter-bypass-btn.active:hover {
-            background: #cc0000;
-            color: #fff;
-        }
+
 
         /* ── Controls drawer (expandable) ── */
         .controls-drawer {
@@ -1762,10 +1715,9 @@
                             <canvas id="limiter-meter" class="limiter-meter-hz"></canvas>
                         </div>
                         <span id="limiter-value" class="limiter-val">0.0</span>
-                        <button id="cb-boost-btn" class="limiter-bypass-btn" title="Bypass limiter">☠️</button>
-                        <span class="limiter-label boost-label" style="display:none">BOOST</span>
-                        <input type="range" id="boost-slider" class="limiter-slider boost-slider" min="1" max="12" step="0.5" value="1" title="Boost level (only active when ☠️ is on)" style="display:none">
-                        <span id="boost-value" class="limiter-val" style="display:none">1.0</span>
+                        <span class="limiter-label boost-label">BOOST</span>
+                        <input type="range" id="boost-slider" class="limiter-slider boost-slider" min="1" max="24" step="0.5" value="1">
+                        <span id="boost-value" class="limiter-val">1.0</span>
                     </div>
                 </div>
                 <div id="eq-panel" class="eq-panel" style="display:none">

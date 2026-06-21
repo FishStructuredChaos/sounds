@@ -190,7 +190,6 @@
     let bitcrusherPort = null;
     let preGain = null;
     var limiterThreshold = 0;
-    var limiterBypass = false;
     var webAudioOk = true;
 
     function getAudioCtx() {
@@ -581,49 +580,13 @@
             }
         });
 
-        var cbBoostBtn = document.getElementById('cb-boost-btn');
         var boostSlider = document.getElementById('boost-slider');
         var boostVal = document.getElementById('boost-value');
-
-        function applyBoost() {
-            if (preGain) {
-                preGain.gain.value = limiterBypass ? parseFloat(boostSlider.value) : 1.0;
-            }
-        }
-
-        if (cbBoostBtn) {
-            cbBoostBtn.addEventListener('click', function () {
-                if (!limiterBypass) {
-                    if (!confirm('☠️ BYPASS LIMITER?\n\nTurns off the limiter and boosts volume.\nLoud sounds may clip!\n\nAdjust the orange slider to control boost amount.\n\nHit OK to bypass.')) return;
-                }
-                limiterBypass = !limiterBypass;
-                if (limiterPort) {
-                    limiterPort.postMessage({ bypass: limiterBypass });
-                } else if (limiterNode) {
-                    if (limiterBypass) {
-                        limiterNode.ratio.value = 1;
-                        limiterNode.threshold.value = 0;
-                    } else {
-                        limiterNode.ratio.value = 20;
-                        limiterNode.threshold.value = limiterThreshold;
-                    }
-                }
-                cbBoostBtn.classList.toggle('active', limiterBypass);
-                cbBoostBtn.title = limiterBypass ? 'LIMITER BYPASSED (click to enable)' : 'Bypass limiter';
-                var limiterWrap = document.querySelector('.limiter-wrap');
-                if (limiterWrap) limiterWrap.classList.toggle('bypassed', limiterBypass);
-                var boostLabel = document.querySelector('.boost-label');
-                if (boostLabel) boostLabel.style.display = limiterBypass ? '' : 'none';
-                if (boostSlider) boostSlider.style.display = limiterBypass ? '' : 'none';
-                if (boostVal) boostVal.style.display = limiterBypass ? '' : 'none';
-                applyBoost();
-            });
-        }
 
         if (boostSlider && boostVal) {
             boostSlider.addEventListener('input', function () {
                 boostVal.textContent = parseFloat(this.value).toFixed(1);
-                applyBoost();
+                if (preGain) preGain.gain.value = parseFloat(this.value);
             });
         }
 
