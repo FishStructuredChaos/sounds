@@ -34,7 +34,7 @@
         nowPlaying: document.getElementById('now-playing'),
         loadBtn: document.getElementById('load-btn'),
         limiterValue: document.getElementById('limiter-value'),
-        limiterReset: document.getElementById('limiter-reset'),
+
     };
 
     let allSounds = [];
@@ -238,6 +238,9 @@
 
         DOM.loading.style.display = 'none';
         DOM.controlsBar.style.display = 'flex';
+        document.getElementById('controls-drawer').classList.add('open');
+        DOM.hideControlsBtn.textContent = '▼';
+        DOM.hideControlsBtn.title = 'Hide controls';
         buildSoundboard(data);
         bindControls();
     }
@@ -512,6 +515,8 @@
         });
 
         DOM.stopBtn.addEventListener('click', stopAll);
+        var cbStopBtn = document.getElementById('cb-stop-btn');
+        if (cbStopBtn) cbStopBtn.addEventListener('click', stopAll);
 
         DOM.volumeSlider.addEventListener('input', function () {
             updateSliderModified(this);
@@ -709,16 +714,11 @@
         });
 
         DOM.hideControlsBtn.addEventListener('click', function () {
-            var bar = DOM.controlsBar;
-            if (bar.style.display === 'none') {
-                bar.style.display = 'flex';
-                DOM.hideControlsBtn.textContent = '▲';
-                DOM.hideControlsBtn.title = 'Hide controls';
-            } else {
-                bar.style.display = 'none';
-                DOM.hideControlsBtn.textContent = '▼';
-                DOM.hideControlsBtn.title = 'Show controls';
-            }
+            var drawer = document.getElementById('controls-drawer');
+            var isOpen = drawer.classList.toggle('open');
+            DOM.hideControlsBtn.textContent = isOpen ? '▼' : '▲';
+            DOM.hideControlsBtn.title = isOpen ? 'Hide controls' : 'Show controls';
+            if (isOpen) setTimeout(function () { startLimiterMeter(); }, 50);
         });
 
         DOM.searchInput.addEventListener('input', function () {
@@ -963,7 +963,8 @@
             }
         });
 
-        // Strip limiter
+        // Limiter
+        var limiterSlider = document.getElementById('limiter-slider');
         DOM.limiterMeter = document.getElementById('limiter-meter');
         DOM.limiterMeterCtx = DOM.limiterMeter ? DOM.limiterMeter.getContext('2d') : null;
         DOM.limiterMeterWrap = DOM.limiterMeter ? DOM.limiterMeter.parentNode : null;
@@ -982,12 +983,12 @@
 
         function drawLimiterMeter() {
             if (!DOM.limiterMeterCtx) return;
+            resizeLimiterMeter();
             var ctx = DOM.limiterMeterCtx;
             var w = DOM.limiterMeter.width;
             var h = DOM.limiterMeter.height;
             ctx.clearRect(0, 0, w, h);
 
-            // Get peak level from analyser
             var peak = 0;
             if (analyser) {
                 var td = new Float32Array(analyser.fftSize);
@@ -997,52 +998,49 @@
                     if (abs > peak) peak = abs;
                 }
             }
-            // Convert to dB (0 dBFS = 1.0)
             var peakDB = peak > 0 ? 20 * Math.log10(peak) : -100;
-            // Smooth peak hold
-            limiterPeak = Math.max(peakDB, limiterPeak - 2);
+            limiterPeak = Math.max(peakDB, limiterPeak - 1.5);
 
-            // Map dB range [-60, 0] to canvas height
-            function dbToY(db) {
-                var n = (db + 60) / 60; // 0 at -60dB, 1 at 0dB
+            function dbToX(db) {
+                var n = (db + 60) / 60;
                 if (n < 0) n = 0;
                 if (n > 1) n = 1;
-                return h * (1 - n);
+                return n * w;
             }
 
-            // Draw meter gradient
-            var y0 = dbToY(0);
-            var y60 = dbToY(-60);
-            var grad = ctx.createLinearGradient(0, y0, 0, y60);
-            grad.addColorStop(0, '#ff0000');
-            grad.addColorStop(0.3, '#ffff00');
-            grad.addColorStop(0.6, '#00ff00');
-            grad.addColorStop(1, '#003300');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, y0, w, y60 - y0);
+            var levelX = dbToX(limiterPeak);
+            var pct = levelX / w;
 
-            // Draw peak level bar
-            var peakY = dbToY(limiterPeak);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, peakY, w, Math.max(2, y0 - peakY));
+            var r, g, b;
+            if (pct < 0.5) { r = 0; g = 255; b = 0; }
+            else if (pct < 0.75) { r = 255; g = 255; b = 0; }
+            else { r = 255; g = 0; b = 0; }
 
-            // Draw threshold line (red)
-            var threshY = dbToY(limiterThreshold);
+            ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.85)';
+            ctx.fillRect(0, 0, levelX, h);
+
+            var threshX = Math.max(0, Math.min(w, dbToX(limiterThreshold)));
             ctx.strokeStyle = '#ff0000';
             ctx.lineWidth = 2;
-            ctx.shadowColor = 'rgba(255,0,0,0.6)';
-            ctx.shadowBlur = 3;
             ctx.beginPath();
-            ctx.moveTo(0, threshY);
-            ctx.lineTo(w, threshY);
+            ctx.moveTo(threshX, 1);
+            ctx.lineTo(threshX, h - 1);
             ctx.stroke();
-            ctx.shadowBlur = 0;
+
+            var arrowL = Math.max(0, threshX - 3);
+            var arrowR = Math.min(w, threshX + 3);
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.moveTo(arrowL, 0);
+            ctx.lineTo(arrowR, 0);
+            ctx.lineTo(threshX, 5);
+            ctx.closePath();
+            ctx.fill();
 
             limiterMeterAnim = requestAnimationFrame(drawLimiterMeter);
         }
 
         function startLimiterMeter() {
-            resizeLimiterMeter();
             if (limiterMeterAnim) cancelAnimationFrame(limiterMeterAnim);
             drawLimiterMeter();
         }
@@ -1054,53 +1052,16 @@
             }
         }
 
-        // Start limiter meter when it becomes visible
-        function updateLimiterResetBtn() {
-            if (DOM.limiterReset) {
-                DOM.limiterReset.classList.toggle('reset-active', limiterThreshold < 0);
-            }
-        }
-
-        DOM.limiterReset.addEventListener('click', function () {
-            limiterThreshold = 0;
-            DOM.limiterValue.textContent = '0.0';
-            updateLimiter();
-            updateLimiterResetBtn();
-        });
-
-        // Click/drag on meter to set threshold
-        if (DOM.limiterMeter) {
-            DOM.limiterMeter.addEventListener('mousedown', function (e) {
-                var rect = this.getBoundingClientRect();
-                var y = (e.clientY - rect.top) / rect.height;
-                var db = (1 - y) * 60 - 60;
-                if (db > 0) db = 0;
-                if (db < -40) db = -40;
-                limiterThreshold = db;
+        // Slider controls threshold
+        if (limiterSlider) {
+            limiterSlider.addEventListener('input', function () {
+                limiterThreshold = parseFloat(this.value);
                 DOM.limiterValue.textContent = limiterThreshold.toFixed(1);
                 updateLimiter();
-                updateLimiterResetBtn();
-                startLimiterMeter();
-
-                function onMove(ev) {
-                    var r = DOM.limiterMeter.getBoundingClientRect();
-                    var yy = (ev.clientY - r.top) / r.height;
-                    var dbb = (1 - yy) * 60 - 60;
-                    if (dbb > 0) dbb = 0;
-                    if (dbb < -40) dbb = -40;
-                    limiterThreshold = dbb;
-                    DOM.limiterValue.textContent = limiterThreshold.toFixed(1);
-                    updateLimiter();
-                    updateLimiterResetBtn();
-                }
-                function onUp() {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                }
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
             });
+        }
 
+        if (DOM.limiterMeter) {
             // Right-click to enter exact value
             DOM.limiterMeter.addEventListener('contextmenu', function (e) {
                 e.preventDefault();
@@ -1112,13 +1073,11 @@
                 if (num < -40) num = -40;
                 limiterThreshold = num;
                 DOM.limiterValue.textContent = limiterThreshold.toFixed(1);
+                if (limiterSlider) limiterSlider.value = String(num);
                 updateLimiter();
-                updateLimiterResetBtn();
                 startLimiterMeter();
             });
 
-            // Initialise meter
-            updateLimiterResetBtn();
             requestAnimationFrame(function () { startLimiterMeter(); });
         }
 
