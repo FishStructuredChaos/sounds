@@ -585,6 +585,7 @@
 
         if (boostSlider && boostVal) {
             boostSlider.addEventListener('input', function () {
+                updateSliderModified(this);
                 boostVal.textContent = parseFloat(this.value).toFixed(1);
                 if (preGain) preGain.gain.value = parseFloat(this.value);
             });
