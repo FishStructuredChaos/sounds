@@ -1089,6 +1089,7 @@
         // Slider controls threshold
         if (limiterSlider) {
             limiterSlider.addEventListener('input', function () {
+                updateSliderModified(this);
                 limiterThreshold = parseFloat(this.value);
                 DOM.limiterValue.textContent = limiterThreshold.toFixed(1);
                 updateLimiter();
@@ -1107,7 +1108,7 @@
                 if (num < -40) num = -40;
                 limiterThreshold = num;
                 DOM.limiterValue.textContent = limiterThreshold.toFixed(1);
-                if (limiterSlider) limiterSlider.value = String(num);
+                if (limiterSlider) { limiterSlider.value = String(num); updateSliderModified(limiterSlider); }
                 updateLimiter();
                 startLimiterMeter();
             });
