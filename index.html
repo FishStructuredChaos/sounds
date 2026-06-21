@@ -169,11 +169,22 @@
             width: 60px;
             border-color: #ff6600 !important;
         }
+        .boost-label {
+            color: #ff6600 !important;
+        }
         .boost-slider::-webkit-slider-thumb {
             background: #ff6600 !important;
         }
         .boost-slider::-moz-range-thumb {
             background: #ff6600 !important;
+        }
+        .limiter-wrap.bypassed .limiter-label:not(.boost-label),
+        .limiter-wrap.bypassed #limiter-value,
+        .limiter-wrap.bypassed #limiter-slider,
+        .limiter-wrap.bypassed .limiter-meter-box {
+            opacity: 0.35;
+            filter: grayscale(1);
+            pointer-events: none;
         }
         .limiter-bypass-btn {
             background: #000;
@@ -1752,6 +1763,7 @@
                         </div>
                         <span id="limiter-value" class="limiter-val">0.0</span>
                         <button id="cb-boost-btn" class="limiter-bypass-btn" title="Bypass limiter">☠️</button>
+                        <span class="limiter-label boost-label" style="display:none">BOOST</span>
                         <input type="range" id="boost-slider" class="limiter-slider boost-slider" min="1" max="4" step="0.1" value="1" title="Boost level (only active when ☠️ is on)" style="display:none">
                         <span id="boost-value" class="limiter-val" style="display:none">1.0</span>
                     </div>

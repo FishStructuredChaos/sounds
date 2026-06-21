@@ -610,6 +610,10 @@
                 }
                 cbBoostBtn.classList.toggle('active', limiterBypass);
                 cbBoostBtn.title = limiterBypass ? 'LIMITER BYPASSED (click to enable)' : 'Bypass limiter';
+                var limiterWrap = document.querySelector('.limiter-wrap');
+                if (limiterWrap) limiterWrap.classList.toggle('bypassed', limiterBypass);
+                var boostLabel = document.querySelector('.boost-label');
+                if (boostLabel) boostLabel.style.display = limiterBypass ? '' : 'none';
                 if (boostSlider) boostSlider.style.display = limiterBypass ? '' : 'none';
                 if (boostVal) boostVal.style.display = limiterBypass ? '' : 'none';
                 applyBoost();
