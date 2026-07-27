@@ -13,7 +13,7 @@ items.forEach(item => {
     const itemPath = path.join(audioDir, item);
     const stat = fs.statSync(itemPath);
     
-    if (stat.isDirectory()) {
+    if (stat.isDirectory() && item !== 'SUBMITTED') {
         const files = fs.readdirSync(itemPath);
         const audioFiles = files.filter(file => {
             const ext = path.extname(file).toLowerCase();
