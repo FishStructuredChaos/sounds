@@ -31,5 +31,6 @@ jobs:
           else
             git commit -m "Auto-update config.js [skip ci]"
             git remote set-url origin https://${{ github.actor }}:${{ secrets.PAT }}@github.com/${{ github.repository }}
+            git pull --rebase
             git push
           fi
