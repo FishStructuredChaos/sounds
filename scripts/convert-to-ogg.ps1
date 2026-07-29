@@ -14,7 +14,7 @@ Write-Host "Converting all audio to OGG Vorbis..."
 Write-Host ""
 
 foreach ($dir in $dirs) {
-    $files = Get-ChildItem -Path $dir.FullName -File | Where-Object { $_.Extension -match '\.(mp3|opus|wav|flac|m4a|aac)$' }
+    $files = Get-ChildItem -Path $dir.FullName -File | Where-Object { $_.Extension -match '\.(mp3|opus|wav|flac|m4a|aac)$' -and $_.Name -notmatch '^(REJECTED_|PENDING_)' }
     foreach ($f in $files) {
         $ogg = [System.IO.Path]::ChangeExtension($f.FullName, '.ogg')
         Write-Host "  $($dir.Name)\$($f.Name)"
