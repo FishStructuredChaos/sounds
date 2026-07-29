@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Remove REJECTED_ files
+        run: find audio/APPROVED -name 'REJECTED_*' -delete
+
       - run: node scripts/generate-config.js
 
       - name: Commit updated config.js

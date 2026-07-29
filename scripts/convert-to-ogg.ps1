@@ -3,6 +3,9 @@ $audioDir = Join-Path (Split-Path -Parent $scriptDir) 'audio'
 
 $dirs = Get-ChildItem -Directory -Path $audioDir | Where-Object { $_.Name -notmatch '^\.' -and $_.Name -ne 'node_modules' }
 
+# Remove files renamed with REJECTED_ prefix
+Get-ChildItem -Path $audioDir -Recurse -Filter "REJECTED_*" | Remove-Item -Force -ErrorAction SilentlyContinue
+
 $total = 0
 $saved = 0
 $failed = 0

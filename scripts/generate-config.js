@@ -13,11 +13,13 @@ items.forEach(item => {
     const itemPath = path.join(audioDir, item);
     const stat = fs.statSync(itemPath);
     
-    if (stat.isDirectory() && item !== 'SUBMITTED') {
+    if (stat.isDirectory()) {
         const files = fs.readdirSync(itemPath);
         const audioFiles = files.filter(file => {
             const ext = path.extname(file).toLowerCase();
-            return ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus'].includes(ext);
+            if (!['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus'].includes(ext)) return false;
+            if (file.startsWith('REJECTED_') || file.startsWith('PENDING_')) return false;
+            return true;
         }).sort();
         
         if (audioFiles.length > 0) {
