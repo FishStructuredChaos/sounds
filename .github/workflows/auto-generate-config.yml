@@ -15,10 +15,10 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
 
-      - name: Remove REJECTED_ and check for actionable files
+      - name: Remove DELETE_ and check for actionable files
         id: check
         run: |
-          find audio/APPROVED -name 'REJECTED_*' -delete
+          find audio/APPROVED -name 'DELETE_*' -delete
           if find audio/APPROVED -type f ! -name 'PENDING_*' -print -quit | grep -q .; then
             echo "run=true" >> $GITHUB_OUTPUT
           else
