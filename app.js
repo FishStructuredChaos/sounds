@@ -430,6 +430,7 @@
         btn.textContent = opts.name;
         btn.dataset.search = opts.name;
         btn.dataset.path = opts.path;
+        if (opts.fileName) btn.dataset.fileName = opts.fileName;
         if (opts.isLocal) btn.dataset.local = '1';
 
         var len = opts.name.length;
@@ -461,6 +462,14 @@
         loopBtn.title = 'Toggle loop';
         loopBtn.dataset.loop = 'false';
         btn.appendChild(loopBtn);
+
+        if (opts.isLocal) {
+            var delBtn = document.createElement('button');
+            delBtn.className = 'delete-single-btn';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Delete this sound';
+            btn.appendChild(delBtn);
+        }
 
         var progressTrack = document.createElement('span');
         progressTrack.className = 'progress-track';
@@ -494,6 +503,7 @@
         btn.addEventListener('click', function (e) {
             if (e.target.closest('.download-btn')) return;
             if (e.target.closest('.stop-single-btn')) { stopSingle(this); return; }
+            if (e.target.closest('.delete-single-btn')) { deleteLocalSound(this); return; }
             if (e.target.closest('.loop-btn')) {
                 if (!paintLoopDrag) toggleLoop(this, this.querySelector('.loop-btn'));
                 paintLoopDrag = false;
@@ -1453,6 +1463,7 @@
             var btn = createSoundButton({
                 name: cleanName,
                 path: blobUrl,
+                fileName: file.name,
                 fileSize: file.size,
                 isLocal: true
             });
@@ -1721,6 +1732,51 @@
                 forgetBuffer(path);
             }
         }
+    }
+
+    function deleteLocalSound(btn) {
+        var catEl = btn.closest('.category-container');
+        var catName = catEl ? catEl.querySelector('.category-title-text').textContent : '';
+        var fileName = btn.dataset.fileName;
+        if (!confirm('Delete "' + btn.textContent.trim() + '" from "' + catName + '"?')) return;
+
+        stopSingle(btn);
+        var path = btn.dataset.path;
+        if (path && path.indexOf('blob:') === 0) {
+            URL.revokeObjectURL(path);
+            forgetBuffer(path);
+        }
+        var pi = allSounds.indexOf(path);
+        if (pi !== -1) allSounds.splice(pi, 1);
+
+        if (fileName) {
+            openImportDB().then(function (db) {
+                var tx = db.transaction('files', 'readwrite');
+                var idx = tx.objectStore('files').index('category');
+                var req = idx.openCursor(IDBKeyRange.only(catName));
+                req.onsuccess = function () {
+                    var cursor = req.result;
+                    if (cursor) {
+                        if (cursor.value.name === fileName) {
+                            cursor.delete();
+                        }
+                        cursor.continue();
+                    }
+                };
+            }).catch(function () {});
+        }
+
+        btn.remove();
+        if (catEl) {
+            var count = catEl.querySelectorAll('.sound-btn').length;
+            var countSpan = catEl.querySelector('.folder-count');
+            if (countSpan) countSpan.textContent = '[' + count + ' sounds]';
+            if (count === 0) {
+                teardownCategory(catEl);
+                catEl.remove();
+            }
+        }
+        updateTotalCount();
     }
 
     function filterSounds() {
