@@ -466,7 +466,7 @@
         if (opts.isLocal) {
             var delBtn = document.createElement('button');
             delBtn.className = 'delete-single-btn';
-            delBtn.textContent = '✕';
+            delBtn.textContent = 'DELETE';
             delBtn.title = 'Delete this sound';
             btn.appendChild(delBtn);
         }
