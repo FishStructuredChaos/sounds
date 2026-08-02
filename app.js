@@ -74,7 +74,9 @@
     let baseTotal = 0;
     let importDB = null;
 
-    var SUPPORTED_EXTS = /\.(mp3|wav|ogg|flac|m4a|aac|opus|webm|aiff|aif|wma|3gp|amr|ac3|mka|ra|rm|voc|pcm|au|snd|ape|dts)$/i;
+    var SUPPORTED_EXTS = /\.(mp3|wav|ogg|flac|m4a|aac|opus|webm)$/i;
+
+    var SUPPORTED_LABEL = 'MP3, WAV (PCM), OGG, FLAC, M4A/AAC, OPUS, WEBM';
 
     function isSupportedAudioFile(file) {
         if (!file) return false;
@@ -135,7 +137,7 @@
                 if (/\.wav$/i.test(file.name)) {
                     checkWavHeader(file).then(function (okFormat) {
                         if (okFormat) done(true);
-                        else done(false, 'compressed/unsupported WAV (e.g. ADPCM) — convert to PCM or OGG');
+                        else done(false, 'compressed/unsupported WAV (e.g. ADPCM) — convert to supported format');
                     });
                 } else {
                     done(true);
@@ -146,18 +148,26 @@
 
     function reportBadFiles(bad) {
         if (bad.length === 0) return;
-        var shown = bad.slice(0, 3).map(function (b) { return b.name + ' — ' + b.reason; }).join(', ');
-        var extra = bad.length > 3 ? ' +' + (bad.length - 3) + ' more' : '';
-        showImportError('Skipped: ' + shown + extra);
+        var lines = bad.slice(0, 3).map(function (b) {
+            if (b.reason === 'not an audio file') {
+                return b.name + ' — not an audio file';
+            }
+            return b.name + ' — ' + b.reason;
+        }).join('<br>');
+        if (bad.length > 3) {
+            lines += '<br>+' + (bad.length - 3) + ' more skipped';
+        }
+        lines += '<br><br>Supported: ' + SUPPORTED_LABEL;
+        showImportError('Skipped ' + bad.length + ' file' + (bad.length > 1 ? 's' : ''), lines);
     }
 
-    function showImportError(msg) {
+    function showImportError(title, msg) {
         var el = document.getElementById('import-error');
         if (!el) return;
-        el.textContent = '⚠ ' + msg;
+        el.innerHTML = '<div style="color:#ff6666;font-size:0.95rem;margin-bottom:6px">⚠ ' + title + '</div><div style="color:#ffb3b3;font-weight:normal;text-transform:none;letter-spacing:0;font-size:0.8rem">' + msg + '</div>';
         el.style.display = 'block';
         clearTimeout(el._hide);
-        el._hide = setTimeout(function () { el.style.display = 'none'; }, 6000);
+        el._hide = setTimeout(function () { el.style.display = 'none'; }, 8000);
     }
 
     function openImportDB() {
@@ -1166,7 +1176,7 @@
         function walkEntry(entry, catName, callback) {
             if (entry.isFile) {
                 entry.file(function (file) {
-                    if (file.type.indexOf('audio/') === 0 || /\.(wav|mp3|ogg|flac|aac|m4a|wma|opus|webm|aiff|aif|ac3|3gp|amr|ape|dts|mka|ra|rm|voc|pcm|au|snd)$/i.test(file.name)) {
+                    if (file.type.indexOf('audio/') === 0 || /\.(mp3|wav|ogg|flac|m4a|aac|opus|webm)$/i.test(file.name)) {
                         callback(file, catName);
                     }
                 });

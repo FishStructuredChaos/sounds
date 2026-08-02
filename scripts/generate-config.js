@@ -17,7 +17,7 @@ items.forEach(item => {
         const files = fs.readdirSync(itemPath);
         const audioFiles = files.filter(file => {
             const ext = path.extname(file).toLowerCase();
-            if (!['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus'].includes(ext)) return false;
+            if (!['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus', '.webm'].includes(ext)) return false;
             if (file.startsWith('DELETE_') || file.startsWith('PENDING_')) return false;
             return true;
         }).sort();
