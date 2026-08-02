@@ -74,6 +74,92 @@
     let baseTotal = 0;
     let importDB = null;
 
+    var SUPPORTED_EXTS = /\.(mp3|wav|ogg|flac|m4a|aac|opus|webm|aiff|aif|wma|3gp|amr|ac3|mka|ra|rm|voc|pcm|au|snd|ape|dts)$/i;
+
+    function isSupportedAudioFile(file) {
+        if (!file) return false;
+        if (SUPPORTED_EXTS.test(file.name)) return true;
+        if (file.type && file.type.indexOf('audio/') === 0) return true;
+        return false;
+    }
+
+    // Inspect a .wav header: only PCM (1) and IEEE float (3) are browser-playable.
+    function checkWavHeader(file) {
+        return new Promise(function (resolve) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var arr = new Uint8Array(reader.result);
+                if (arr.length < 44) { resolve(false); return; }
+                function ascii(a, b) {
+                    var s = '';
+                    for (var i = a; i < b; i++) s += String.fromCharCode(arr[i]);
+                    return s;
+                }
+                if (ascii(0, 4) !== 'RIFF' || ascii(8, 12) !== 'WAVE') { resolve(false); return; }
+                var pos = 12;
+                while (pos + 8 <= arr.length) {
+                    var id = ascii(pos, pos + 4);
+                    var size = arr[pos + 4] | (arr[pos + 5] << 8) | (arr[pos + 6] << 16) | (arr[pos + 7] << 24);
+                    if (id === 'fmt ') {
+                        var audioFormat = arr[pos + 8] | (arr[pos + 9] << 8);
+                        resolve(audioFormat === 1 || audioFormat === 3);
+                        return;
+                    }
+                    pos += 8 + size + (size % 2);
+                }
+                resolve(false);
+            };
+            reader.onerror = function () { resolve(false); };
+            reader.readAsArrayBuffer(file.slice(0, 100));
+        });
+    }
+
+    // Async filter: returns valid files + rejected files with reasons.
+    function filterValidAudioFiles(files, callback) {
+        var ok = [];
+        var bad = [];
+        var pending = files.length;
+        if (pending === 0) { callback(ok, bad); return; }
+        for (var i = 0; i < files.length; i++) {
+            (function (file) {
+                function done(valid, reason) {
+                    if (valid) ok.push(file);
+                    else bad.push({ name: file.name, reason: reason });
+                    pending--;
+                    if (pending === 0) callback(ok, bad);
+                }
+                if (!isSupportedAudioFile(file)) {
+                    done(false, 'not an audio file');
+                    return;
+                }
+                if (/\.wav$/i.test(file.name)) {
+                    checkWavHeader(file).then(function (okFormat) {
+                        if (okFormat) done(true);
+                        else done(false, 'compressed/unsupported WAV (e.g. ADPCM) — convert to PCM or OGG');
+                    });
+                } else {
+                    done(true);
+                }
+            })(files[i]);
+        }
+    }
+
+    function reportBadFiles(bad) {
+        if (bad.length === 0) return;
+        var shown = bad.slice(0, 3).map(function (b) { return b.name + ' — ' + b.reason; }).join(', ');
+        var extra = bad.length > 3 ? ' +' + (bad.length - 3) + ' more' : '';
+        showImportError('Skipped: ' + shown + extra);
+    }
+
+    function showImportError(msg) {
+        var el = document.getElementById('import-error');
+        if (!el) return;
+        el.textContent = '⚠ ' + msg;
+        el.style.display = 'block';
+        clearTimeout(el._hide);
+        el._hide = setTimeout(function () { el.style.display = 'none'; }, 6000);
+    }
+
     function openImportDB() {
         return new Promise(function (resolve, reject) {
             if (importDB) { resolve(importDB); return; }
@@ -466,7 +552,7 @@
         if (opts.isLocal) {
             var delBtn = document.createElement('button');
             delBtn.className = 'delete-single-btn';
-            delBtn.textContent = 'DELETE';
+            delBtn.textContent = 'REMOVE';
             delBtn.title = 'Delete this sound';
             btn.appendChild(delBtn);
         }
@@ -1023,23 +1109,31 @@
             inp.addEventListener('change', function () {
                 var files = this.files;
                 if (!files || files.length === 0) return;
-                if (mode === 'folder') {
-                    // Group files by subfolder to create separate categories
-                    var groups = {};
-                    for (var gi = 0; gi < files.length; gi++) {
-                        var relPath = files[gi].webkitRelativePath || '';
-                        var parts = relPath.split('/');
-                        var grpName = parts.length > 1 ? parts[0] : '📂 ROOT';
-                        if (!groups[grpName]) groups[grpName] = [];
-                        groups[grpName].push(files[gi]);
+                var all = Array.prototype.slice.call(files);
+                filterValidAudioFiles(all, function (okFiles, bad) {
+                    reportBadFiles(bad);
+                    if (okFiles.length === 0) {
+                        document.body.removeChild(inp);
+                        return;
                     }
-                    for (var grp in groups) {
-                        loadLocalFiles(groups[grp], grp);
+                    if (mode === 'folder') {
+                        // Group files by subfolder to create separate categories
+                        var groups = {};
+                        for (var gi = 0; gi < okFiles.length; gi++) {
+                            var relPath = okFiles[gi].webkitRelativePath || '';
+                            var parts = relPath.split('/');
+                            var grpName = parts.length > 1 ? parts[0] : '📂 ROOT';
+                            if (!groups[grpName]) groups[grpName] = [];
+                            groups[grpName].push(okFiles[gi]);
+                        }
+                        for (var grp in groups) {
+                            loadLocalFiles(groups[grp], grp);
+                        }
+                    } else {
+                        loadLocalFiles(okFiles, '📂 MY SOUNDS');
                     }
-                } else {
-                    loadLocalFiles(files, '📂 MY SOUNDS');
-                }
-                document.body.removeChild(inp);
+                    document.body.removeChild(inp);
+                });
             });
             document.body.appendChild(inp);
             inp.click();
@@ -1113,16 +1207,26 @@
             // Process after microtask to collect all files
             setTimeout(function () {
                 if (pending.length === 0) return;
-                var groups = {};
+                var catMap = {};
+                var files = [];
                 for (var pi = 0; pi < pending.length; pi++) {
-                    var p = pending[pi];
-                    var gn = p.catName || '📂 MY SOUNDS';
-                    if (!groups[gn]) groups[gn] = [];
-                    groups[gn].push(p.file);
+                    catMap[pending[pi].file] = pending[pi].catName;
+                    files.push(pending[pi].file);
                 }
-                for (var gn in groups) {
-                    loadLocalFiles(groups[gn], gn);
-                }
+                filterValidAudioFiles(files, function (okFiles, bad) {
+                    reportBadFiles(bad);
+                    if (okFiles.length === 0) return;
+                    var groups = {};
+                    for (var oi = 0; oi < okFiles.length; oi++) {
+                        var f = okFiles[oi];
+                        var gn = catMap[f] || '📂 MY SOUNDS';
+                        if (!groups[gn]) groups[gn] = [];
+                        groups[gn].push(f);
+                    }
+                    for (var gn in groups) {
+                        loadLocalFiles(groups[gn], gn);
+                    }
+                });
             }, 50);
         }
 
