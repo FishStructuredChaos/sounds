@@ -1578,6 +1578,47 @@
 
         /* ── Controller bar responsive ── */
         @media (max-width: 768px) {
+            .category-title {
+                font-size: 1.1rem;
+                flex-wrap: wrap;
+                row-gap: 4px;
+                padding-bottom: 6px;
+                margin-bottom: 8px;
+            }
+            .category-title-left {
+                min-width: 0;
+                flex: 1 1 auto;
+                overflow: hidden;
+            }
+            .category-title-text {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .folder-count {
+                font-size: 0.75rem;
+            }
+            .cat-toggle, .cat-delete {
+                font-size: 0.6rem;
+                padding: 2px 6px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .category-title {
+                font-size: 0.9rem;
+                letter-spacing: 0.5px;
+            }
+            .category-title-left {
+                gap: 6px;
+            }
+            .cat-toggle, .cat-delete {
+                font-size: 0.55rem;
+                padding: 2px 5px;
+            }
+        }
+
+        @media (max-width: 768px) {
             .controller-bar {
                 padding: 2px 4px;
                 gap: 4px;
