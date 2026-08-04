@@ -15,26 +15,16 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
 
-      - name: Remove DELETE_ files and check for actionable files
-        id: check
-        run: |
-          find audio -name 'DELETE_*' -delete
-          if find audio -type f ! -name 'PENDING_*' -print -quit | grep -q .; then
-            echo "run=true" >> $GITHUB_OUTPUT
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
-          fi
+      - name: Remove DELETE_ files
+        run: find audio -name 'DELETE_*' -delete
 
-      - if: steps.check.outputs.run == 'true'
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - if: steps.check.outputs.run == 'true'
-        run: node scripts/generate-config.js
+      - run: node scripts/generate-config.js
 
-      - if: steps.check.outputs.run == 'true'
-        name: Commit updated config.js
+      - name: Commit updated config.js
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
