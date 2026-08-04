@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'audio/APPROVED/**'
+      - 'audio/**'
 
 jobs:
   generate:
@@ -15,11 +15,11 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
 
-      - name: Remove DELETE_ and check for actionable files
+      - name: Remove DELETE_ files and check for actionable files
         id: check
         run: |
-          find audio/APPROVED -name 'DELETE_*' -delete
-          if find audio/APPROVED -type f ! -name 'PENDING_*' -print -quit | grep -q .; then
+          find audio -name 'DELETE_*' -delete
+          if find audio -type f ! -name 'PENDING_*' -print -quit | grep -q .; then
             echo "run=true" >> $GITHUB_OUTPUT
           else
             echo "run=false" >> $GITHUB_OUTPUT
